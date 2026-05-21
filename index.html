@@ -681,12 +681,68 @@ function log(msg) {
   if(el.children.length>60) el.removeChild(el.firstChild);
 }
 
+// ── REAL PRICE FROM METAAPI ───────────────────────────────
+let priceFailCount = 0;
+
+async function fetchRealPrice() {
+  try {
+    const res = await fetch(`${BASE}/api/price`);
+    const data = await res.json();
+
+    if (data.price && data.price > 5 && data.price < 500) {
+      price = data.price;
+      priceFailCount = 0;
+
+      const el = document.getElementById('livePrice');
+      const old = parseFloat(el.textContent.replace('$','')) || price;
+      el.textContent = '$' + price.toFixed(3);
+
+      const chgVal = price - old;
+      const chgPct = old ? (chgVal / old * 100) : 0;
+      const up = chgVal >= 0;
+      document.getElementById('priceChg').innerHTML = up
+        ? `<span style="color:var(--green)">▲ +${Math.abs(chgVal).toFixed(3)} (+${Math.abs(chgPct).toFixed(2)}%)</span>`
+        : `<span style="color:var(--red)">▼ ${chgVal.toFixed(3)} (${chgPct.toFixed(2)}%)</span>`;
+
+      document.getElementById('m-spot').textContent = price.toFixed(3);
+      document.getElementById('lCur').textContent   = price.toFixed(3);
+      document.getElementById('sEnt').textContent   = price.toFixed(3);
+      document.getElementById('sSL').textContent    = (price * 1.005).toFixed(3);
+      document.getElementById('sTP1').textContent   = (price * 0.995).toFixed(3);
+      document.getElementById('sTP2').textContent   = (price * 0.990).toFixed(3);
+      document.getElementById('t-tgt').textContent  = (price * 0.995).toFixed(3);
+
+      if (data.bid && data.ask) {
+        log(`[PRICE] $${price.toFixed(3)} | Bid:${data.bid} Ask:${data.ask} Spread:${data.spread}`);
+      } else {
+        log(`[PRICE] $${price.toFixed(3)} — ${data.source}`);
+      }
+
+    } else if (data.error) {
+      priceFailCount++;
+      log(`[PRICE] Error: ${data.error}`);
+      if (priceFailCount >= 3) {
+        document.getElementById('priceChg').innerHTML =
+          `<span style="color:var(--yellow)">⚠️ MetaAPI Error</span>`;
+      }
+    }
+  } catch(e) {
+    priceFailCount++;
+    log(`[PRICE] Fetch failed: ${e.message}`);
+  }
+}
+
 // ── INIT ─────────────────────────────────────────────────
 window.addEventListener('resize',()=>drawChart(curTF));
 drawChart('M5'); updateSparks(); updateSessions();
-setInterval(tick,1500);
-log('[SYS] Silver AI Bot ready — all API calls routed via Vercel');
-log('[SEC] Keys: ANTHROPIC_API_KEY + OPENAI_API_KEY + TELEGRAM_BOT_TOKEN stored server-side');
+
+fetchRealPrice();
+setInterval(fetchRealPrice, 10000);
+setInterval(tick, 1500);
+
+log('[SYS] Silver AI Bot — MetaAPI MT5 Live Feed');
+log('[PRICE] Refreshing every 10 seconds from MT5');
+log('[SEC] All API keys secured on Vercel server-side');
 </script>
 </body>
 </html>
