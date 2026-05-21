@@ -1,0 +1,692 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🥈 Silver AI Bot — XAG/USD</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Cairo:wght@300;400;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root{--silver:#C0C0C0;--silver-bright:#E8E8E8;--silver-dim:#8A8A8A;--gold:#FFD700;--red:#FF2D55;--green:#00FF88;--blue:#00D4FF;--orange:#FF9500;--yellow:#FFE000;--bg-deep:#050810;--bg-card:#0A0F1E;--bg-panel:#0D1428;--border:rgba(192,192,192,0.15);--border-bright:rgba(192,192,192,0.4)}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--bg-deep);color:var(--silver-bright);font-family:'Cairo',sans-serif;min-height:100vh;overflow-x:hidden;background-image:radial-gradient(ellipse at 20% 50%,rgba(0,212,255,0.03) 0%,transparent 50%),radial-gradient(ellipse at 80% 20%,rgba(192,192,192,0.04) 0%,transparent 40%)}
+
+/* HEADER */
+.header{display:flex;justify-content:space-between;align-items:center;padding:10px 16px;background:linear-gradient(90deg,rgba(10,15,30,0.98),rgba(15,20,40,0.98));border-bottom:1px solid var(--border-bright);position:sticky;top:0;z-index:100;backdrop-filter:blur(10px)}
+.logo{font-family:'Orbitron',monospace;font-size:16px;font-weight:900;color:var(--silver-bright);letter-spacing:2px}
+.logo span{color:var(--gold)}
+.live-price{font-family:'Orbitron',monospace;font-size:26px;font-weight:900;color:var(--green);text-shadow:0 0 15px rgba(0,255,136,0.4)}
+.live-badge{display:flex;align-items:center;gap:6px;background:rgba(0,255,136,0.1);border:1px solid rgba(0,255,136,0.3);border-radius:20px;padding:4px 10px;font-size:10px;font-family:'JetBrains Mono',monospace;color:var(--green)}
+.live-dot{width:7px;height:7px;border-radius:50%;background:var(--green);animation:pulse 1s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+
+/* LAYOUT */
+.main{display:grid;grid-template-columns:260px 1fr 260px;height:calc(100vh - 53px)}
+@media(max-width:900px){.main{grid-template-columns:1fr;height:auto}.center-panel{height:380px}}
+
+/* PANELS */
+.left-panel,.right-panel{background:var(--bg-panel);overflow-y:auto;padding:8px;display:flex;flex-direction:column;gap:6px}
+.left-panel{border-left:1px solid var(--border)}
+.right-panel{border-right:1px solid var(--border)}
+
+/* SECTION HEADER */
+.shdr{display:flex;align-items:center;gap:7px;padding:4px 0;border-bottom:1px solid var(--border);margin-bottom:4px}
+.shdr span{font-family:'Orbitron',monospace;font-size:9px;letter-spacing:2px;color:var(--silver-dim)}
+.shdr::before{content:'';width:3px;height:11px;border-radius:2px;flex-shrink:0}
+.s-blue::before{background:var(--blue)}.s-green::before{background:var(--green)}.s-gold::before{background:var(--gold)}.s-red::before{background:var(--red)}.s-silver::before{background:var(--silver)}
+
+/* TABLEAU ROWS */
+.trow{display:grid;grid-template-columns:95px 1fr;gap:3px;min-height:32px}
+.tlbl{background:linear-gradient(135deg,#0D1F3C,#152848);border:1px solid rgba(0,212,255,0.2);border-radius:4px 0 0 4px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:var(--blue);text-align:center;padding:3px}
+.tval{border-radius:0 4px 4px 0;display:flex;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;text-align:center;padding:3px 6px;transition:all .3s}
+.t-red{background:#5A0000;color:#FFAAAA;border:1px solid var(--red)}
+.t-green{background:#003D1A;color:#88FFBB;border:1px solid #00CC66}
+.t-blue{background:#001A40;color:#88DDFF;border:1px solid #0077CC}
+.t-gray{background:#1E1E1E;color:#AAAAAA;border:1px solid #555}
+.t-gold{background:#3D2800;color:#FFD700;border:1px solid #CC8800}
+.t-orange{background:#3D1A00;color:#FFAA44;border:1px solid #FF6600}
+
+/* SESSIONS */
+.sess{border-radius:6px;padding:6px 10px;display:flex;justify-content:space-between;align-items:center;font-size:11px;border:1px solid;transition:all .3s}
+.sess-on{background:rgba(0,255,136,0.08);border-color:var(--green);color:var(--green)}
+.sess-off{background:rgba(100,100,100,0.04);border-color:#2a2a2a;color:#555}
+.sess-name{font-weight:700;font-size:12px;margin-bottom:2px}
+.sess-time{font-family:'JetBrains Mono',monospace;font-size:9px}
+
+/* CHART */
+.center-panel{display:flex;flex-direction:column;border-right:1px solid var(--border);border-left:1px solid var(--border);overflow:hidden}
+.tf-tabs{display:flex;background:var(--bg-card);border-bottom:1px solid var(--border)}
+.tf-tab{padding:10px 18px;font-family:'Orbitron',monospace;font-size:10px;cursor:pointer;color:var(--silver-dim);border-bottom:2px solid transparent;transition:all .2s;letter-spacing:1px}
+.tf-tab.active{color:var(--silver-bright);border-bottom-color:var(--silver);background:rgba(192,192,192,0.05)}
+.chart-wrap{flex:1;position:relative;background:var(--bg-card);overflow:hidden}
+canvas{display:block}
+.chart-labels{position:absolute;top:8px;left:8px;display:flex;flex-direction:column;gap:5px;pointer-events:none}
+.clbl{font-family:'JetBrains Mono',monospace;font-size:9px;padding:3px 7px;border-radius:3px;backdrop-filter:blur(4px)}
+.clbl-s{background:rgba(255,45,85,0.2);border:1px solid rgba(255,45,85,0.5);color:#FF8899}
+.clbl-d{background:rgba(0,255,136,0.12);border:1px solid rgba(0,255,136,0.4);color:#88FFCC}
+.clbl-f{background:rgba(255,215,0,0.1);border:1px solid rgba(255,215,0,0.3);color:#FFDD88}
+.mini-row{display:grid;grid-template-columns:repeat(4,1fr);height:90px;border-top:1px solid var(--border)}
+.mini-cell{border-right:1px solid var(--border);display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;padding:5px;transition:background .2s}
+.mini-cell:hover,.mini-cell.active{background:rgba(192,192,192,0.06)}
+.mini-tf{font-family:'Orbitron',monospace;font-size:8px;color:var(--silver-dim);letter-spacing:2px;margin-bottom:3px}
+.mini-svg{width:100%;height:35px}
+.mini-trend{font-family:'JetBrains Mono',monospace;font-size:9px;font-weight:700;margin-top:3px}
+.t-bull{color:var(--green)}.t-bear{color:var(--red)}
+
+/* SIGNAL CARD */
+.sig-card{border-radius:8px;padding:12px;border:1px solid;position:relative;overflow:hidden}
+.sig-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px}
+.sig-buy{background:rgba(0,255,136,0.05);border-color:rgba(0,255,136,0.4)}
+.sig-buy::before{background:linear-gradient(90deg,transparent,var(--green),transparent)}
+.sig-sell{background:rgba(255,45,85,0.05);border-color:rgba(255,45,85,0.4)}
+.sig-sell::before{background:linear-gradient(90deg,transparent,var(--red),transparent)}
+.sig-wait{background:rgba(255,224,0,0.05);border-color:rgba(255,224,0,0.4)}
+.sig-wait::before{background:linear-gradient(90deg,transparent,var(--yellow),transparent)}
+.sig-dir{font-family:'Orbitron',monospace;font-size:22px;font-weight:900;letter-spacing:2px}
+.dir-buy{color:var(--green);text-shadow:0 0 15px rgba(0,255,136,0.5)}.dir-sell{color:var(--red);text-shadow:0 0 15px rgba(255,45,85,0.5)}.dir-wait{color:var(--yellow)}
+.sig-row{display:flex;justify-content:space-between;align-items:center;margin:3px 0;font-size:12px}
+.sig-lbl{color:var(--silver-dim)}.sig-val{font-family:'JetBrains Mono',monospace;font-weight:700}
+
+/* SCHOOL GRID */
+.school-grid{display:grid;grid-template-columns:1fr 1fr;gap:4px}
+.school-item{background:var(--bg-card);border:1px solid var(--border);border-radius:5px;padding:6px 8px}
+.school-name{color:var(--silver-dim);font-size:10px;margin-bottom:2px}
+.school-sig{font-weight:700;font-family:'JetBrains Mono',monospace;font-size:11px}
+
+/* INDICATORS */
+.ind-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:4px}
+.ind-cell{background:var(--bg-card);border:1px solid var(--border);border-radius:5px;padding:5px 4px;text-align:center}
+.ind-name{font-size:9px;color:var(--silver-dim);letter-spacing:.5px}
+.ind-val{font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;margin:2px 0}
+.ind-sig{font-size:8px;font-weight:700}
+
+/* LEVELS */
+.lvl{display:flex;justify-content:space-between;align-items:center;padding:5px 8px;border-radius:4px;font-family:'JetBrains Mono',monospace;font-size:11px;border:1px solid;margin-bottom:3px}
+.lvl-r{background:rgba(255,45,85,0.07);border-color:rgba(255,45,85,0.25)}
+.lvl-s{background:rgba(0,255,136,0.07);border-color:rgba(0,255,136,0.25)}
+.lvl-c{background:rgba(192,192,192,0.05);border-color:rgba(192,192,192,0.3)}
+.lvl-label{font-size:9px;color:var(--silver-dim);font-family:'Cairo',sans-serif}
+
+/* CALENDAR */
+.cal-ev{background:var(--bg-card);border-radius:5px;padding:6px 10px;border-right:3px solid;margin-bottom:4px;display:flex;justify-content:space-between;align-items:center}
+.cal-ev.high{border-color:var(--red)}.cal-ev.med{border-color:var(--orange)}.cal-ev.low{border-color:var(--silver-dim)}
+.cal-name{font-size:11px;font-weight:600}.cal-time{font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--silver-dim)}
+.cal-imp{font-size:9px;font-weight:700}
+
+/* BUTTONS & INPUTS */
+.btn{background:linear-gradient(135deg,#0D2550,#08183A);border:1px solid rgba(0,150,255,0.35);border-radius:6px;color:white;padding:9px 14px;cursor:pointer;font-family:'Cairo',sans-serif;font-size:12px;font-weight:700;transition:all .2s;width:100%}
+.btn:hover{background:linear-gradient(135deg,#1040A0,#0A2866);box-shadow:0 0 12px rgba(0,100,255,0.25)}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.btn-green{background:linear-gradient(135deg,#063D20,#042A16);border-color:rgba(0,200,100,0.35)}
+.btn-green:hover{background:linear-gradient(135deg,#0A5A2E,#063D20)}
+.btn-grid{display:grid;grid-template-columns:1fr 1fr;gap:5px}
+.inp{background:rgba(0,0,0,0.4);border:1px solid var(--border);border-radius:5px;color:var(--silver-bright);padding:8px 10px;font-family:'JetBrains Mono',monospace;font-size:11px;outline:none;width:100%;margin-bottom:5px}
+.inp:focus{border-color:var(--blue)}
+.inp::placeholder{color:var(--silver-dim)}
+
+/* STATUS BADGES */
+.badge{font-size:10px;padding:4px 10px;border-radius:4px;text-align:center;font-family:'JetBrains Mono',monospace;margin-top:4px}
+.badge-ok{background:rgba(0,255,136,0.1);color:var(--green);border:1px solid rgba(0,255,136,0.3)}
+.badge-err{background:rgba(255,45,85,0.1);color:var(--red);border:1px solid rgba(255,45,85,0.3)}
+.badge-warn{background:rgba(255,224,0,0.1);color:var(--yellow);border:1px solid rgba(255,224,0,0.3)}
+
+/* AI RESULT */
+.ai-result{background:rgba(0,0,0,0.45);border:1px solid rgba(0,212,255,0.18);border-radius:6px;padding:10px;font-size:12px;line-height:1.75;color:var(--silver-bright);min-height:70px;max-height:220px;overflow-y:auto;direction:rtl;white-space:pre-wrap}
+
+/* AI LOG */
+.ai-log{background:rgba(0,0,0,0.4);border:1px solid rgba(0,212,255,0.12);border-radius:5px;padding:7px;font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--blue);max-height:110px;overflow-y:auto;line-height:1.6}
+.ai-log span{color:var(--silver-dim)}
+
+/* MODEL TOGGLE */
+.model-toggle{display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-bottom:6px}
+.model-btn{padding:7px;font-family:'JetBrains Mono',monospace;font-size:10px;cursor:pointer;border-radius:5px;border:1px solid;text-align:center;transition:all .2s}
+.model-claude{border-color:rgba(255,150,50,0.4);color:#FF9932;background:rgba(255,150,50,0.08)}
+.model-claude.sel{background:rgba(255,150,50,0.2);border-color:rgba(255,150,50,0.7)}
+.model-openai{border-color:rgba(0,212,255,0.4);color:var(--blue);background:rgba(0,212,255,0.06)}
+.model-openai.sel{background:rgba(0,212,255,0.18);border-color:rgba(0,212,255,0.7)}
+
+/* CHINA */
+.china-bar-wrap{height:5px;border-radius:3px;background:rgba(255,255,255,0.08);margin:5px 0;overflow:hidden}
+.china-bar{height:100%;border-radius:3px;background:linear-gradient(90deg,#CC0000,#FF4444);position:relative}
+.china-bar::after{content:'';position:absolute;top:0;left:-100%;width:100%;height:100%;background:linear-gradient(90deg,transparent,rgba(255,255,255,0.3),transparent);animation:shimmer 2.5s infinite}
+@keyframes shimmer{0%{left:-100%}100%{left:100%}}
+
+/* SCROLLBAR */
+::-webkit-scrollbar{width:3px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:rgba(192,192,192,0.2);border-radius:2px}
+</style>
+</head>
+<body>
+
+<header class="header">
+  <div class="logo">XAG<span>/</span>USD <span style="font-size:10px;color:var(--silver-dim)">SILVER</span></div>
+  <div style="text-align:center">
+    <div class="live-price" id="livePrice">$29.847</div>
+    <div style="font-size:11px" id="priceChg"><span style="color:var(--green)">▲ +0.32 (+1.08%)</span></div>
+  </div>
+  <div style="display:flex;align-items:center;gap:8px">
+    <div style="text-align:left;font-size:9px;color:var(--silver-dim);font-family:'JetBrains Mono',monospace" id="srvTime">--:--:-- GMT</div>
+    <div class="live-badge"><div class="live-dot"></div>LIVE</div>
+  </div>
+</header>
+
+<div class="main">
+
+<!-- ══════════ LEFT PANEL ══════════ -->
+<div class="left-panel">
+  <div style="font-family:'Orbitron',monospace;font-size:9px;letter-spacing:3px;color:var(--silver-dim);text-align:center;padding:4px 0;border-bottom:1px solid var(--border);margin-bottom:2px">SIGNAL TABLEAU</div>
+
+  <!-- SESSIONS -->
+  <div class="shdr s-green"><span>TRADING SESSIONS</span></div>
+  <div class="sess sess-off" id="s-as">
+    <div><div class="sess-name">🌏 آسيا</div><div class="sess-time">00:00 – 09:00 GMT</div></div>
+    <div id="s-as-st" style="font-size:10px">○ CLOSED</div>
+  </div>
+  <div class="sess sess-on" id="s-eu">
+    <div><div class="sess-name">🇪🇺 أوروبا</div><div class="sess-time">08:00 – 17:00 GMT</div></div>
+    <div id="s-eu-st" style="font-size:11px;font-weight:700">● OPEN</div>
+  </div>
+  <div class="sess sess-off" id="s-us">
+    <div><div class="sess-name">🇺🇸 أمريكا</div><div class="sess-time">13:30 – 22:00 GMT</div></div>
+    <div id="s-us-st" style="font-size:10px">○ 00:48</div>
+  </div>
+
+  <!-- TABLEAU -->
+  <div class="shdr s-blue" style="margin-top:4px"><span>LIVE DASHBOARD</span></div>
+  <div class="trow"><div class="tlbl">الاتجاه</div><div class="tval t-red" id="t-trend">هابط</div></div>
+  <div class="trow"><div class="tlbl">السيولة</div><div class="tval t-red" id="t-liq">أسفل</div></div>
+  <div class="trow"><div class="tlbl">CRT</div><div class="tval t-gray" id="t-crt">لا يوجد CRT</div></div>
+  <div class="trow"><div class="tlbl">القرب</div><div class="tval t-green" id="t-prox">بعيد</div></div>
+  <div class="trow"><div class="tlbl">الفرصة</div><div class="tval t-gray" id="t-opp">لا يوجد / بيع</div></div>
+  <div class="trow"><div class="tlbl">القرار</div><div class="tval t-red" id="t-dec">تجاهل</div></div>
+  <div class="trow"><div class="tlbl">الدخول</div><div class="tval t-red" id="t-ent">Blocked</div></div>
+  <div class="trow"><div class="tlbl">الهدف</div><div class="tval t-gold" id="t-tgt">29.45</div></div>
+  <div class="trow"><div class="tlbl">المنطقة</div><div class="tval t-blue" id="t-zone">عرض / ممنوع</div></div>
+  <div class="trow"><div class="tlbl">التقييم</div><div class="tval t-orange" id="t-rate">S A (5)</div></div>
+  <div class="trow"><div class="tlbl">Recovery</div><div class="tval t-gold" id="t-rec">غير مفعل</div></div>
+
+  <!-- CHINA -->
+  <div class="shdr s-red" style="margin-top:4px"><span>CHINA DEMAND</span></div>
+  <div style="background:rgba(180,0,0,0.07);border:1px solid rgba(180,0,0,0.25);border-radius:6px;padding:8px">
+    <div style="display:flex;justify-content:space-between;font-size:11px"><span>🇨🇳 الطلب الصناعي</span><span style="color:var(--red);font-family:'JetBrains Mono',monospace;font-weight:700">73%</span></div>
+    <div class="china-bar-wrap"><div class="china-bar" style="width:73%"></div></div>
+    <div style="font-size:9px;color:var(--silver-dim)">Solar 42% · EV 18% · Electronics 13%</div>
+  </div>
+
+  <!-- MACRO -->
+  <div class="shdr s-silver" style="margin-top:4px"><span>MACRO</span></div>
+  <div class="ind-grid">
+    <div class="ind-cell"><div class="ind-name">Spot XAG</div><div class="ind-val" style="color:var(--silver-bright)" id="m-spot">29.847</div><div class="ind-sig" style="color:var(--silver-dim)">LIVE</div></div>
+    <div class="ind-cell"><div class="ind-name">GSR</div><div class="ind-val" style="color:var(--gold)" id="m-gsr">87.4</div><div class="ind-sig" style="color:var(--silver-dim)">RATIO</div></div>
+    <div class="ind-cell"><div class="ind-name">DXY</div><div class="ind-val" style="color:var(--orange)" id="m-dxy">104.2</div><div class="ind-sig" style="color:var(--red)">↑ BEAR</div></div>
+    <div class="ind-cell"><div class="ind-name">10Y US</div><div class="ind-val" style="color:var(--orange)" id="m-10y">4.42%</div><div class="ind-sig" style="color:var(--red)">↑ BEAR</div></div>
+    <div class="ind-cell"><div class="ind-name">VIX</div><div class="ind-val" style="color:var(--yellow)" id="m-vix">18.3</div><div class="ind-sig" style="color:var(--yellow)">NEUT</div></div>
+    <div class="ind-cell"><div class="ind-name">Dec Fut</div><div class="ind-val" style="color:var(--blue)" id="m-fut">30.12</div><div class="ind-sig" style="color:var(--blue)">CONT</div></div>
+  </div>
+</div>
+
+<!-- ══════════ CENTER CHART ══════════ -->
+<div class="center-panel">
+  <div class="tf-tabs">
+    <div class="tf-tab active" onclick="setTF(this,'M5')">M5</div>
+    <div class="tf-tab" onclick="setTF(this,'M15')">M15</div>
+    <div class="tf-tab" onclick="setTF(this,'M30')">M30</div>
+    <div class="tf-tab" onclick="setTF(this,'H1')">H1</div>
+    <div style="flex:1"></div>
+    <div style="display:flex;align-items:center;gap:8px;padding:0 10px;font-size:9px;color:var(--silver-dim);font-family:'JetBrains Mono',monospace">
+      <span style="color:var(--red)">■</span>Supply <span style="color:var(--green)">■</span>Demand <span style="color:var(--gold)">■</span>FVG <span style="color:var(--blue)">─</span>EMA
+    </div>
+  </div>
+  <div class="chart-wrap" id="chartWrap">
+    <canvas id="mc"></canvas>
+    <div class="chart-labels">
+      <div class="clbl clbl-s">📦 SUPPLY: 30.20 – 30.45</div>
+      <div class="clbl clbl-d">🧲 DEMAND: 29.10 – 29.35</div>
+      <div class="clbl clbl-f">⚡ FVG: 29.62 – 29.78</div>
+    </div>
+  </div>
+  <div class="mini-row">
+    <div class="mini-cell active" id="mc-M5" onclick="setTF(document.querySelectorAll('.tf-tab')[0],'M5')">
+      <div class="mini-tf">M5</div>
+      <svg class="mini-svg" viewBox="0 0 80 30"><polyline id="sp5" points="" fill="none" stroke-width="1.5"/></svg>
+      <div class="mini-trend t-bear" id="mt5">↓ BEAR</div>
+    </div>
+    <div class="mini-cell" id="mc-M15" onclick="setTF(document.querySelectorAll('.tf-tab')[1],'M15')">
+      <div class="mini-tf">M15</div>
+      <svg class="mini-svg" viewBox="0 0 80 30"><polyline id="sp15" points="" fill="none" stroke-width="1.5"/></svg>
+      <div class="mini-trend t-bear" id="mt15">↓ BEAR</div>
+    </div>
+    <div class="mini-cell" id="mc-M30" onclick="setTF(document.querySelectorAll('.tf-tab')[2],'M30')">
+      <div class="mini-tf">M30</div>
+      <svg class="mini-svg" viewBox="0 0 80 30"><polyline id="sp30" points="" fill="none" stroke-width="1.5"/></svg>
+      <div class="mini-trend t-bull" id="mt30">↑ BULL</div>
+    </div>
+    <div class="mini-cell" id="mc-H1" onclick="setTF(document.querySelectorAll('.tf-tab')[3],'H1')">
+      <div class="mini-tf">H1</div>
+      <svg class="mini-svg" viewBox="0 0 80 30"><polyline id="spH1" points="" fill="none" stroke-width="1.5"/></svg>
+      <div class="mini-trend t-bull" id="mtH1">↑ BULL</div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════ RIGHT PANEL ══════════ -->
+<div class="right-panel">
+
+  <!-- MAIN SIGNAL CARD -->
+  <div class="sig-card sig-sell" id="sigCard">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px">
+      <div>
+        <div style="font-size:8px;color:var(--silver-dim);letter-spacing:2px;font-family:'Orbitron',monospace;margin-bottom:2px">CONSENSUS</div>
+        <div class="sig-dir dir-sell" id="sigDir">SELL</div>
+      </div>
+      <div style="text-align:left">
+        <div style="font-size:8px;color:var(--silver-dim)">الثقة</div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:26px;font-weight:700;color:var(--gold)" id="sigConf">68%</div>
+      </div>
+    </div>
+    <div class="sig-row"><span class="sig-lbl">دخول</span><span class="sig-val" style="color:var(--silver-bright)" id="sEnt">29.847</span></div>
+    <div class="sig-row"><span class="sig-lbl">وقف</span><span class="sig-val" style="color:var(--red)" id="sSL">30.22</span></div>
+    <div class="sig-row"><span class="sig-lbl">هدف 1</span><span class="sig-val" style="color:var(--green)" id="sTP1">29.45</span></div>
+    <div class="sig-row"><span class="sig-lbl">هدف 2</span><span class="sig-val" style="color:var(--green)" id="sTP2">29.10</span></div>
+    <div class="sig-row" style="border-top:1px solid var(--border);padding-top:5px;margin-top:4px">
+      <span class="sig-lbl">R:R</span><span class="sig-val" style="color:var(--gold)" id="sRR">1 : 2.4</span>
+    </div>
+    <div class="sig-row"><span class="sig-lbl">أفضل جلسة</span><span class="sig-val" style="color:var(--blue)" id="sSess">أوروبا/US</span></div>
+  </div>
+
+  <!-- SCHOOL ANALYSIS -->
+  <div>
+    <div class="shdr s-gold"><span>MULTI-SCHOOL</span></div>
+    <div class="school-grid">
+      <div class="school-item"><div class="school-name">ICT / SMC</div><div class="school-sig" style="color:var(--red)">SELL 🔴</div><div style="font-size:8px;color:var(--silver-dim)">OB+FVG+Sweep</div></div>
+      <div class="school-item"><div class="school-name">Wyckoff</div><div class="school-sig" style="color:var(--orange)">DIST 🟠</div><div style="font-size:8px;color:var(--silver-dim)">Phase C – UTAD</div></div>
+      <div class="school-item"><div class="school-name">Elliott Wave</div><div class="school-sig" style="color:var(--red)">W5 END 🔴</div><div style="font-size:8px;color:var(--silver-dim)">Impulse End</div></div>
+      <div class="school-item"><div class="school-name">Supply/Demand</div><div class="school-sig" style="color:var(--red)">SUPPLY 🔴</div><div style="font-size:8px;color:var(--silver-dim)">Fresh H1</div></div>
+      <div class="school-item"><div class="school-name">Price Action</div><div class="school-sig" style="color:var(--red)">BEAR 🔴</div><div style="font-size:8px;color:var(--silver-dim)">BOS+CHoCH</div></div>
+      <div class="school-item"><div class="school-name">Macro/Fund.</div><div class="school-sig" style="color:var(--yellow)">NEUT 🟡</div><div style="font-size:8px;color:var(--silver-dim)">Mixed</div></div>
+    </div>
+  </div>
+
+  <!-- INDICATORS -->
+  <div>
+    <div class="shdr s-blue"><span>INDICATORS</span></div>
+    <div class="ind-grid">
+      <div class="ind-cell"><div class="ind-name">RSI 14</div><div class="ind-val" style="color:var(--orange)" id="i-rsi">58.3</div><div class="ind-sig" style="color:var(--orange)">NEUT</div></div>
+      <div class="ind-cell"><div class="ind-name">MACD</div><div class="ind-val" style="color:var(--red)" id="i-macd">-0.12</div><div class="ind-sig" style="color:var(--red)">SELL</div></div>
+      <div class="ind-cell"><div class="ind-name">EMA 50</div><div class="ind-val" style="color:var(--red)" id="i-e50">29.91</div><div class="ind-sig" style="color:var(--red)">↓</div></div>
+      <div class="ind-cell"><div class="ind-name">EMA 200</div><div class="ind-val" style="color:var(--green)" id="i-e200">27.45</div><div class="ind-sig" style="color:var(--green)">↑</div></div>
+      <div class="ind-cell"><div class="ind-name">VWAP</div><div class="ind-val" style="color:var(--silver-bright)" id="i-vwap">29.92</div><div class="ind-sig" style="color:var(--red)">BELOW</div></div>
+      <div class="ind-cell"><div class="ind-name">ATR</div><div class="ind-val" style="color:var(--blue)" id="i-atr">0.42</div><div class="ind-sig" style="color:var(--blue)">NORM</div></div>
+    </div>
+  </div>
+
+  <!-- LEVELS -->
+  <div>
+    <div class="shdr s-silver"><span>KEY LEVELS</span></div>
+    <div class="lvl lvl-r"><span style="color:var(--red)">R2</span><span id="lR2">30.45</span><span class="lvl-label">OB بيع</span></div>
+    <div class="lvl lvl-r"><span style="color:var(--orange)">R1</span><span id="lR1">30.20</span><span class="lvl-label">مقاومة H1</span></div>
+    <div class="lvl lvl-c"><span style="color:var(--silver)">↔</span><span id="lCur" style="color:var(--silver-bright);font-weight:900">29.847</span><span class="lvl-label">الحالي</span></div>
+    <div class="lvl lvl-s"><span style="color:var(--green)">S1</span><span id="lS1">29.45</span><span class="lvl-label">FVG + دعم</span></div>
+    <div class="lvl lvl-s"><span style="color:var(--green)">S2</span><span id="lS2">29.10</span><span class="lvl-label">OB شراء</span></div>
+  </div>
+
+  <!-- CALENDAR -->
+  <div>
+    <div class="shdr s-red"><span>ECONOMIC CALENDAR</span></div>
+    <div class="cal-ev high"><div><div class="cal-name">🇺🇸 CPI y/y</div><div class="cal-time">14:30 GMT اليوم</div></div><div class="cal-imp" style="color:var(--red)">HIGH ⚠️</div></div>
+    <div class="cal-ev high"><div><div class="cal-name">🇺🇸 FOMC Minutes</div><div class="cal-time">18:00 GMT غداً</div></div><div class="cal-imp" style="color:var(--red)">HIGH 🔴</div></div>
+    <div class="cal-ev med"><div><div class="cal-name">🇨🇳 Industrial Output</div><div class="cal-time">02:00 GMT الخميس</div></div><div class="cal-imp" style="color:var(--orange)">MED 🟠</div></div>
+  </div>
+
+  <!-- AI MODEL SELECTOR -->
+  <div>
+    <div class="shdr s-blue"><span>AI DEEP ANALYSIS</span></div>
+    <div class="model-toggle">
+      <div class="model-btn model-claude sel" id="mb-claude" onclick="selectModel('claude')">🟠 Claude<br><span style="font-size:8px">Sonnet 4</span></div>
+      <div class="model-btn model-openai" id="mb-openai" onclick="selectModel('openai')">🔵 GPT-4o<br><span style="font-size:8px">OpenAI</span></div>
+    </div>
+    <button class="btn" onclick="runAI()" id="aiBtn">🤖 تحليل AI الآن</button>
+    <div class="ai-result" id="aiOut" style="color:var(--silver-dim);font-size:11px;margin-top:6px">اختر النموذج واضغط تحليل...</div>
+    <div id="aiBadge" class="badge badge-warn" style="display:none"></div>
+  </div>
+
+  <!-- TELEGRAM -->
+  <div>
+    <div class="shdr s-blue"><span>TELEGRAM BOT</span></div>
+    <div id="tgStatus" class="badge badge-err">● Bot يعمل عبر Vercel — الـ Token محمي</div>
+    <div style="margin-top:6px" class="btn-grid">
+      <button class="btn" onclick="tgSend('test')" style="font-size:11px">📤 تجريبي</button>
+      <button class="btn" onclick="tgSend('report')" style="font-size:11px">📊 تقرير</button>
+    </div>
+    <div style="margin-top:4px">
+      <button class="btn btn-green" onclick="tgSend('signal')" style="font-size:11px">⚡ إرسال الإشارة الحالية</button>
+    </div>
+    <div id="tgLog" class="badge" style="margin-top:4px;display:none"></div>
+  </div>
+
+  <!-- AI LOG -->
+  <div>
+    <div class="shdr s-silver"><span>SYSTEM LOG</span></div>
+    <div class="ai-log" id="sysLog">
+      <div><span>[BOOT]</span> Silver AI Bot initialized</div>
+      <div><span>[API]</span> Calls routed via Vercel — keys secured</div>
+      <div><span>[ML]</span> ICT + Wyckoff + Elliott + S&D + PA engines loaded</div>
+    </div>
+  </div>
+
+</div><!-- end right -->
+</div><!-- end main -->
+
+<script>
+// ── CONFIG ──────────────────────────────────────────────
+// الـ base URL لـ Vercel — غيّره بعد الـ deploy
+const BASE = window.location.origin; // تلقائي بعد deploy
+let selectedModel = 'claude';
+let curTF = 'M5';
+let price = 29.847;
+
+// ── CANDLE DATA ──────────────────────────────────────────
+function genCandles(n, base, vol) {
+  const c = []; let p = base;
+  for (let i = 0; i < n; i++) {
+    const chg = (Math.random() - 0.48) * vol;
+    p += chg;
+    const o = p, cl = p + (Math.random()-.5)*vol*.5;
+    const h = Math.max(o,cl)+Math.random()*vol*.3, l = Math.min(o,cl)-Math.random()*vol*.3;
+    c.push({o,cl,h,l}); p = cl;
+  }
+  return c;
+}
+const candles = { M5: genCandles(80,29.85,.08), M15: genCandles(60,29.85,.15), M30: genCandles(50,29.85,.22), H1: genCandles(40,29.85,.35) };
+
+// ── CHART ENGINE ─────────────────────────────────────────
+const canvas = document.getElementById('mc');
+const ctx = canvas.getContext('2d');
+
+function drawChart(tf) {
+  const wrap = document.getElementById('chartWrap');
+  canvas.width = wrap.clientWidth; canvas.height = wrap.clientHeight;
+  const W = canvas.width, H = canvas.height;
+  const data = candles[tf];
+  if (!data?.length) return;
+
+  ctx.fillStyle = '#070B18'; ctx.fillRect(0,0,W,H);
+
+  // grid
+  ctx.strokeStyle = 'rgba(192,192,192,0.04)'; ctx.lineWidth = .5;
+  for(let i=0;i<8;i++){const y=H*i/8;ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke()}
+  for(let i=0;i<10;i++){const x=W*i/10;ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke()}
+
+  const prices = data.flatMap(c=>[c.h,c.l]);
+  const minP=Math.min(...prices), maxP=Math.max(...prices), pad=(maxP-minP)*.15;
+  const pMin=minP-pad, pMax=maxP+pad;
+  const toY = p => H - ((p-pMin)/(pMax-pMin))*(H*.88) - H*.06;
+  const mL=14, mR=52, cW=Math.max(2,(W-mL-mR)/data.length-1);
+
+  // zones
+  const zoneAlpha = [['rgba(255,45,85,.07)','rgba(255,45,85,.3)',30.45,30.20],['rgba(0,255,136,.06)','rgba(0,255,136,.25)',29.35,29.10],['rgba(255,215,0,.05)','rgba(255,215,0,.2)',29.78,29.62]];
+  zoneAlpha.forEach(([fill,stroke,top,bot])=>{
+    ctx.fillStyle=fill; ctx.fillRect(mL,toY(top),W-mL-mR,toY(bot)-toY(top));
+    ctx.strokeStyle=stroke; ctx.lineWidth=.5; ctx.strokeRect(mL,toY(top),W-mL-mR,toY(bot)-toY(top));
+  });
+
+  // EMA50
+  ctx.beginPath(); ctx.strokeStyle='#00D4FF'; ctx.lineWidth=1;
+  let ema=data[0].cl, k=2/51;
+  data.forEach((c,i)=>{ ema=c.cl*k+ema*(1-k); const x=mL+(i/data.length)*(W-mL-mR)+cW/2; i?ctx.lineTo(x,toY(ema)):ctx.moveTo(x,toY(ema)); });
+  ctx.stroke();
+
+  // candles
+  data.forEach((c,i)=>{
+    const x=mL+(i/data.length)*(W-mL-mR);
+    const bull=c.cl>=c.o, col=bull?'#00FF88':'#FF2D55';
+    ctx.strokeStyle=col; ctx.lineWidth=.8;
+    const cx=x+cW/2;
+    ctx.beginPath(); ctx.moveTo(cx,toY(c.h)); ctx.lineTo(cx,toY(c.l)); ctx.stroke();
+    ctx.fillStyle=bull?'rgba(0,255,136,.75)':'rgba(255,45,85,.75)';
+    const bT=toY(Math.max(c.o,c.cl)), bH=Math.max(1,Math.abs(toY(c.o)-toY(c.cl)));
+    ctx.fillRect(x+.5,bT,Math.max(1,cW-1),bH);
+  });
+
+  // current price line
+  const curP=data[data.length-1].cl, curY=toY(curP);
+  ctx.setLineDash([4,4]); ctx.strokeStyle='rgba(192,192,192,.5)'; ctx.lineWidth=.7;
+  ctx.beginPath(); ctx.moveTo(mL,curY); ctx.lineTo(W-mR+4,curY); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle='rgba(192,192,192,.9)'; ctx.fillRect(W-mR+4,curY-8,mR-2,16);
+  ctx.fillStyle='#070B18'; ctx.font='bold 8px monospace'; ctx.textAlign='left';
+  ctx.fillText(curP.toFixed(3),W-mR+6,curY+3);
+
+  // price scale
+  ctx.fillStyle='rgba(192,192,192,.45)'; ctx.font='7px monospace'; ctx.textAlign='left';
+  for(let i=0;i<=6;i++){const p=pMin+(pMax-pMin)*i/6; ctx.fillText(p.toFixed(2),W-mR+5,toY(p)+3);}
+}
+
+// ── SPARKLINES ───────────────────────────────────────────
+function drawSpark(id, data, color) {
+  const el=document.getElementById(id);
+  const prices=data.map(c=>c.cl);
+  const mn=Math.min(...prices), mx=Math.max(...prices);
+  const pts=prices.map((p,i)=>{ const x=(i/(prices.length-1))*76+2, y=28-((p-mn)/(mx-mn||1))*24+1; return `${x},${y}`; }).join(' ');
+  el.setAttribute('points',pts); el.setAttribute('stroke',color);
+}
+function updateSparks() {
+  const tr=d=>d[d.length-1].cl>d[0].cl;
+  [['sp5','mt5','M5'],['sp15','mt15','M15'],['sp30','mt30','M30'],['spH1','mtH1','H1']].forEach(([sid,tid,tf])=>{
+    const bull=tr(candles[tf]);
+    drawSpark(sid,candles[tf].slice(-20),bull?'#00FF88':'#FF2D55');
+    const el=document.getElementById(tid);
+    el.textContent=bull?'↑ BULL':'↓ BEAR'; el.className='mini-trend '+(bull?'t-bull':'t-bear');
+  });
+}
+
+// ── TF SWITCH ────────────────────────────────────────────
+function setTF(el, tf) {
+  document.querySelectorAll('.tf-tab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.mini-cell').forEach(c=>c.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('mc-'+tf)?.classList.add('active');
+  curTF=tf; drawChart(tf); log('[CHART] TF: '+tf);
+}
+
+// ── PRICE TICK ────────────────────────────────────────────
+function tick() {
+  const chg=(Math.random()-.495)*.04;
+  price=Math.max(28,Math.min(32,price+chg));
+  const p=price, prev=candles[curTF];
+  // update last candle
+  if(Math.random()<.1){
+    const last=prev[prev.length-1];
+    prev.push({o:last.cl,cl:p,h:Math.max(last.cl,p)+Math.random()*.03,l:Math.min(last.cl,p)-Math.random()*.03});
+    if(prev.length>100) prev.shift();
+  } else {
+    const c=prev[prev.length-1]; c.cl=p; c.h=Math.max(c.h,p); c.l=Math.min(c.l,p);
+  }
+
+  const el=document.getElementById('livePrice');
+  const old=parseFloat(el.textContent.replace('$',''));
+  el.textContent='$'+p.toFixed(3);
+  const d=(p-29.5), pct=(d/29.5*100).toFixed(2);
+  document.getElementById('priceChg').innerHTML=p>old?`<span style="color:var(--green)">▲ +${d.toFixed(3)} (+${pct}%)</span>`:`<span style="color:var(--red)">▼ ${d.toFixed(3)} (${pct}%)</span>`;
+
+  document.getElementById('m-spot').textContent=p.toFixed(3);
+  document.getElementById('lCur').textContent=p.toFixed(3);
+  document.getElementById('sEnt').textContent=p.toFixed(3);
+  document.getElementById('sSL').textContent=(p+.37).toFixed(3);
+  document.getElementById('sTP1').textContent=(p-.4).toFixed(3);
+  document.getElementById('sTP2').textContent=(p-.75).toFixed(3);
+  document.getElementById('t-tgt').textContent=(p-.4).toFixed(2);
+
+  const rsi=45+Math.random()*30;
+  document.getElementById('i-rsi').textContent=rsi.toFixed(1);
+
+  const bear=p>29.9;
+  document.getElementById('t-trend').textContent=bear?'هابط':'صاعد';
+  document.getElementById('t-trend').className='tval '+(bear?'t-red':'t-green');
+  document.getElementById('t-dec').textContent=bear?'تجاهل':'فرصة دخول';
+  document.getElementById('t-dec').className='tval '+(bear?'t-red':'t-green');
+  document.getElementById('t-ent').textContent=bear?'Blocked':'مسموح';
+  document.getElementById('t-ent').className='tval '+(bear?'t-red':'t-green');
+
+  drawChart(curTF); updateSparks(); updateSessions();
+}
+
+// ── SESSIONS ─────────────────────────────────────────────
+function updateSessions() {
+  const now=new Date(), h=now.getUTCHours(), m=now.getUTCMinutes(), s=now.getUTCSeconds();
+  const gt=`${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')} GMT`;
+  document.getElementById('srvTime').textContent=gt;
+
+  const eu=h>=8&&h<17, us=h>=13&&h<22, as=h<9;
+  const setSess=(id,stId,on,label)=>{
+    document.getElementById(id).className='sess '+(on?'sess-on':'sess-off');
+    document.getElementById(stId).textContent=on?('● OPEN'):label;
+  };
+  setSess('s-eu','s-eu-st',eu,'○ CLOSED');
+  setSess('s-us','s-us-st',us,'○ CLOSED');
+  setSess('s-as','s-as-st',as,'○ CLOSED');
+
+  const bestSess=us&&eu?'أوروبا + أمريكا ⭐':us?'أمريكا':eu?'أوروبا':as?'آسيا':'لا جلسة';
+  document.getElementById('sSess').textContent=bestSess;
+}
+
+// ── AI MODEL SELECT ───────────────────────────────────────
+function selectModel(m) {
+  selectedModel=m;
+  document.getElementById('mb-claude').classList.toggle('sel',m==='claude');
+  document.getElementById('mb-openai').classList.toggle('sel',m==='openai');
+  log('[AI] Model: '+m);
+}
+
+// ── AI ANALYSIS ───────────────────────────────────────────
+async function runAI() {
+  const btn=document.getElementById('aiBtn');
+  const out=document.getElementById('aiOut');
+  const badge=document.getElementById('aiBadge');
+  btn.disabled=true; btn.textContent='⏳ جاري التحليل...';
+  out.textContent=''; out.style.color='var(--silver-dim)';
+  badge.style.display='none';
+  log('[AI] Calling /api/'+(selectedModel==='claude'?'analyze':'openai')+'...');
+
+  const endpoint = selectedModel==='claude' ? `${BASE}/api/analyze` : `${BASE}/api/openai`;
+
+  try {
+    const res = await fetch(endpoint, {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({
+        price: price.toFixed(3),
+        rsi: document.getElementById('i-rsi').textContent,
+        macd: document.getElementById('i-macd').textContent,
+        ema50: document.getElementById('i-e50').textContent,
+        ema200: document.getElementById('i-e200').textContent,
+        gsr: document.getElementById('m-gsr').textContent,
+        dxy: document.getElementById('m-dxy').textContent,
+        session: document.getElementById('sSess').textContent
+      })
+    });
+
+    if (!res.ok) throw new Error('HTTP '+res.status);
+    const data = await res.json();
+    const text = data.analysis || data.error || 'لا توجد استجابة';
+
+    out.textContent = text; out.style.color='var(--silver-bright)';
+    badge.className='badge badge-ok'; badge.textContent='✅ '+data.model+' — تحليل مكتمل'; badge.style.display='block';
+    log('[AI] ✓ Response received ('+text.length+' chars)');
+
+    // update signal from AI response
+    if(text.includes('بيع')||text.includes('SELL')||text.includes('هابط')){
+      setSigCard('SELL',68);
+    } else if(text.includes('شراء')||text.includes('BUY')||text.includes('صاعد')){
+      setSigCard('BUY',72);
+    }
+
+    // auto-send to Telegram
+    await tgSendAI(text, data.model);
+
+  } catch(e) {
+    out.textContent='⚠️ خطأ: '+e.message+'\n\nتأكد أن الـ Vercel environment variables محدثة:\nANTHROPIC_API_KEY\nOPENAI_API_KEY';
+    out.style.color='var(--red)';
+    badge.className='badge badge-err'; badge.textContent='❌ API Error'; badge.style.display='block';
+    log('[AI] ✗ '+e.message);
+  }
+  btn.disabled=false; btn.textContent='🤖 تحليل AI الآن';
+}
+
+// ── SIGNAL CARD UPDATE ────────────────────────────────────
+function setSigCard(dir, conf) {
+  const card=document.getElementById('sigCard');
+  const el=document.getElementById('sigDir');
+  card.className='sig-card '+(dir==='BUY'?'sig-buy':dir==='SELL'?'sig-sell':'sig-wait');
+  el.textContent=dir; el.className='sig-dir '+(dir==='BUY'?'dir-buy':dir==='SELL'?'dir-sell':'dir-wait');
+  document.getElementById('sigConf').textContent=conf+'%';
+}
+
+// ── TELEGRAM VIA VERCEL ───────────────────────────────────
+async function tgSend(type) {
+  const logEl=document.getElementById('tgLog');
+  logEl.style.display='block'; logEl.className='badge badge-warn'; logEl.textContent='⏳ جاري الإرسال...';
+
+  let body = {};
+  if(type==='test') {
+    body={ message: `🥈 *Test — Silver AI Bot*\n\nسعر الفضة: $${price.toFixed(3)}\nالإشارة: ${document.getElementById('sigDir').textContent}\n${new Date().toUTCString()}` };
+  } else if(type==='report') {
+    body={ type:'signal', data:{
+      price:price.toFixed(3), direction:document.getElementById('sigDir').textContent,
+      confidence:document.getElementById('sigConf').textContent,
+      entry:document.getElementById('sEnt').textContent, sl:document.getElementById('sSL').textContent,
+      tp1:document.getElementById('sTP1').textContent, tp2:document.getElementById('sTP2').textContent,
+      rr:'1:2.4', session:document.getElementById('sSess').textContent,
+      ict:'SELL 🔴', wyckoff:'DIST 🟠', elliott:'W5 End 🔴'
+    }};
+  } else if(type==='signal') {
+    body={ type:'signal', data:{
+      price:price.toFixed(3), direction:document.getElementById('sigDir').textContent,
+      confidence:document.getElementById('sigConf').textContent,
+      entry:document.getElementById('sEnt').textContent, sl:document.getElementById('sSL').textContent,
+      tp1:document.getElementById('sTP1').textContent, tp2:document.getElementById('sTP2').textContent,
+      rr:'1:2.4', session:document.getElementById('sSess').textContent,
+      ict:'SELL 🔴', wyckoff:'DIST 🟠', elliott:'W5 End 🔴'
+    }};
+  }
+
+  try {
+    const res=await fetch(`${BASE}/api/telegram`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    const data=await res.json();
+    if(data.ok) {
+      logEl.className='badge badge-ok'; logEl.textContent='✅ تم الإرسال على Telegram';
+      log('[TG] ✓ Sent (msg_id: '+data.message_id+')');
+    } else {
+      throw new Error(data.error||'Unknown');
+    }
+  } catch(e) {
+    logEl.className='badge badge-err'; logEl.textContent='❌ '+e.message;
+    log('[TG] ✗ '+e.message);
+  }
+}
+
+async function tgSendAI(analysis, model) {
+  try {
+    await fetch(`${BASE}/api/telegram`,{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({type:'ai_analysis',data:{analysis,model}})});
+    log('[TG] AI analysis sent');
+  } catch(e) { log('[TG] AI send fail: '+e.message); }
+}
+
+// ── LOG ───────────────────────────────────────────────────
+function log(msg) {
+  const el=document.getElementById('sysLog');
+  const d=document.createElement('div');
+  const t=new Date().toUTCString().split(' ')[4];
+  d.innerHTML=`<span>[${t}]</span> ${msg}`;
+  el.appendChild(d); el.scrollTop=el.scrollHeight;
+  if(el.children.length>60) el.removeChild(el.firstChild);
+}
+
+// ── INIT ─────────────────────────────────────────────────
+window.addEventListener('resize',()=>drawChart(curTF));
+drawChart('M5'); updateSparks(); updateSessions();
+setInterval(tick,1500);
+log('[SYS] Silver AI Bot ready — all API calls routed via Vercel');
+log('[SEC] Keys: ANTHROPIC_API_KEY + OPENAI_API_KEY + TELEGRAM_BOT_TOKEN stored server-side');
+</script>
+</body>
+</html>
