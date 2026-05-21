@@ -1,5 +1,4 @@
-// api/price.js — Real XAG/USD from MetaAPI (MT5)
-// يجلب السعر مباشرة من حساب MT5 عبر MetaAPI
+// api/price.js — Real XAG/USD price + candles from MetaAPI MT5
 
 export default async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
@@ -8,78 +7,78 @@ export default async function handler(req, res) {
 
   const TOKEN   = process.env.METAAPI_TOKEN;
   const ACCOUNT = process.env.METAAPI_ACCOUNT_ID;
+  const type    = req.query.type || 'price'; // price | candles
+  const tf      = req.query.tf   || 'M5';    // M5 M15 M30 H1
+  const symbol  = req.query.symbol || 'XAGUSD';
 
   if (!TOKEN || !ACCOUNT) {
-    return res.status(500).json({
-      error: 'Missing METAAPI_TOKEN or METAAPI_ACCOUNT_ID in Vercel env',
-      price: null
-    });
+    return res.status(500).json({ error: 'Missing METAAPI_TOKEN or METAAPI_ACCOUNT_ID' });
   }
 
-  try {
-    // جلب سعر XAGUSD مباشرة من MT5
-    const r = await fetch(
-      `https://mt-client-api-v1.london.agiliumtrade.ai/users/current/accounts/${ACCOUNT}/symbols/XAGUSD/current-price`,
-      {
-        headers: {
-          'auth-token': TOKEN,
-          'Content-Type': 'application/json'
-        }
-      }
-    );
+  const BASE_URL = `https://mt-client-api-v1.london.agiliumtrade.ai/users/current/accounts/${ACCOUNT}`;
+  const HEADERS  = { 'auth-token': TOKEN, 'Content-Type': 'application/json' };
 
-    if (!r.ok) {
-      const err = await r.text();
-      throw new Error(`MetaAPI ${r.status}: ${err}`);
-    }
-
-    const d = await r.json();
-    const bid    = parseFloat(d.bid  || 0);
-    const ask    = parseFloat(d.ask  || 0);
-    const mid    = parseFloat(((bid + ask) / 2).toFixed(4));
-    const spread = parseFloat((ask - bid).toFixed(4));
-
-    return res.status(200).json({
-      price:  mid,
-      bid:    bid,
-      ask:    ask,
-      spread: spread,
-      symbol: d.symbol || 'XAGUSD',
-      source: 'metaapi-mt5',
-      ts:     Date.now()
-    });
-
-  } catch (e) {
-
-    // Fallback: ابحث في قائمة الرموز
+  // ── جلب السعر الحالي ─────────────────────────────────────
+  if (type === 'price') {
     try {
-      const r2 = await fetch(
-        `https://mt-client-api-v1.london.agiliumtrade.ai/users/current/accounts/${ACCOUNT}/symbols`,
-        { headers: { 'auth-token': TOKEN } }
-      );
-      const symbols = await r2.json();
-      const silver = symbols.find(s =>
-        s.symbol === 'XAGUSD' || s.symbol === 'SILVER' ||
-        s.symbol === 'XAGUSDm' || s.symbol?.includes('XAG')
-      );
-      if (silver) {
-        return res.status(200).json({
-          price:  parseFloat(((silver.bid + silver.ask) / 2).toFixed(4)),
-          bid:    silver.bid,
-          ask:    silver.ask,
-          spread: parseFloat((silver.ask - silver.bid).toFixed(4)),
-          symbol: silver.symbol,
-          source: 'metaapi-symbols',
-          ts:     Date.now()
-        });
-      }
-    } catch (_) {}
+      const r = await fetch(`${BASE_URL}/symbols/${symbol}/current-price`, { headers: HEADERS });
+      if (!r.ok) throw new Error(`MetaAPI ${r.status}: ${await r.text()}`);
+      const d = await r.json();
 
-    return res.status(500).json({
-      error: e.message,
-      price: null,
-      source: 'failed',
-      ts: Date.now()
-    });
+      let bid = parseFloat(d.bid || 0);
+      let ask = parseFloat(d.ask || 0);
+
+      return res.status(200).json({
+        price:  parseFloat(((bid + ask) / 2).toFixed(4)),
+        bid:    parseFloat(bid.toFixed(4)),
+        ask:    parseFloat(ask.toFixed(4)),
+        spread: parseFloat((ask - bid).toFixed(4)),
+        symbol: d.symbol || symbol,
+        source: 'metaapi-mt5',
+        ts:     Date.now()
+      });
+    } catch (e) {
+      return res.status(500).json({ error: e.message, price: null });
+    }
   }
+
+  // ── جلب الشمعات التاريخية ────────────────────────────────
+  if (type === 'candles') {
+    // تحويل TF إلى MetaAPI timeframe
+    const tfMap = { M5: '5m', M15: '15m', M30: '30m', H1: '1h', H4: '4h', D1: '1d' };
+    const mtTF  = tfMap[tf] || '5m';
+    const limit = parseInt(req.query.limit || '100');
+
+    try {
+      const r = await fetch(
+        `${BASE_URL}/history-candles/${symbol}/timeframes/${mtTF}/candles?limit=${limit}`,
+        { headers: HEADERS }
+      );
+      if (!r.ok) throw new Error(`MetaAPI candles ${r.status}: ${await r.text()}`);
+      const d = await r.json();
+
+      // d.candles = [{time, open, high, low, close, tickVolume}]
+      const candles = (d.candles || d || []).map(c => ({
+        t:  new Date(c.time).getTime(),
+        o:  parseFloat(c.open),
+        h:  parseFloat(c.high),
+        l:  parseFloat(c.low),
+        cl: parseFloat(c.close),
+        v:  parseInt(c.tickVolume || 0)
+      }));
+
+      return res.status(200).json({
+        candles,
+        symbol,
+        tf,
+        count: candles.length,
+        source: 'metaapi-mt5',
+        ts: Date.now()
+      });
+    } catch (e) {
+      return res.status(500).json({ error: e.message, candles: [] });
+    }
+  }
+
+  return res.status(400).json({ error: 'type must be price or candles' });
 }
