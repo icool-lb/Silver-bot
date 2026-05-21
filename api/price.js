@@ -1,4 +1,4 @@
-// api/price.js — MetaAPI MT5 — Price + Candles
+// api/price.js — MetaAPI للسعر Live + Yahoo Finance للشمعات
 
 export default async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
@@ -9,23 +9,18 @@ export default async function handler(req, res) {
   const ACCOUNT = process.env.METAAPI_ACCOUNT_ID;
   const type    = req.query.type   || 'price';
   const tf      = req.query.tf     || 'M5';
-  const symbol  = req.query.symbol || 'XAGUSD';
   const limit   = parseInt(req.query.limit || '100');
 
-  if (!TOKEN || !ACCOUNT) {
-    return res.status(500).json({ error: 'Missing METAAPI_TOKEN or METAAPI_ACCOUNT_ID' });
-  }
-
-  const HOST    = 'https://mt-client-api-v1.london.agiliumtrade.ai';
-  const BASE    = `${HOST}/users/current/accounts/${ACCOUNT}`;
-  const HEADERS = { 'auth-token': TOKEN, 'Content-Type': 'application/json' };
-
-  // ── السعر الحالي ─────────────────────────────────────────
+  // ── السعر اللحظي من MetaAPI ───────────────────────────────
   if (type === 'price') {
+    if (!TOKEN || !ACCOUNT) return res.status(500).json({ error: 'Missing MetaAPI credentials' });
     try {
-      const r = await fetch(`${BASE}/symbols/${symbol}/current-price`, { headers: HEADERS });
-      if (!r.ok) throw new Error(`${r.status}: ${await r.text()}`);
-      const d = await r.json();
+      const r = await fetch(
+        `https://mt-client-api-v1.london.agiliumtrade.ai/users/current/accounts/${ACCOUNT}/symbols/XAGUSD/current-price`,
+        { headers: { 'auth-token': TOKEN, 'Content-Type': 'application/json' } }
+      );
+      if (!r.ok) throw new Error(`MetaAPI ${r.status}`);
+      const d   = await r.json();
       const bid = parseFloat(d.bid || 0);
       const ask = parseFloat(d.ask || 0);
       return res.status(200).json({
@@ -33,7 +28,7 @@ export default async function handler(req, res) {
         bid:    parseFloat(bid.toFixed(4)),
         ask:    parseFloat(ask.toFixed(4)),
         spread: parseFloat((ask-bid).toFixed(4)),
-        symbol: d.symbol || symbol,
+        symbol: 'XAGUSD',
         source: 'metaapi-mt5',
         ts:     Date.now()
       });
@@ -42,66 +37,89 @@ export default async function handler(req, res) {
     }
   }
 
-  // ── الشمعات التاريخية ────────────────────────────────────
+  // ── الشمعات من Yahoo Finance (مجاني بدون key) ────────────
   if (type === 'candles') {
+    // Yahoo Finance symbol للفضة
+    const yahooSym = 'SI%3DF'; // Silver Futures = SI=F
 
-    // MetaAPI الـ endpoint الصحيح للشمعات
-    // GET /users/current/accounts/:id/historical-market-data/symbols/:symbol/timeframes/:tf/candles
-    const tfMap = { M1:'1m', M5:'5m', M15:'15m', M30:'30m', H1:'1h', H4:'4h', D1:'1d' };
-    const mtTF  = tfMap[tf] || '5m';
+    // تحويل TF
+    const intervalMap = { M5:'5m', M15:'15m', M30:'30m', H1:'1h', H4:'1h', D1:'1d' };
+    const rangeMap    = { M5:'5d', M15:'5d',  M30:'5d',  H1:'1mo', H4:'1mo', D1:'6mo' };
+    const interval    = intervalMap[tf] || '5m';
+    const range       = rangeMap[tf]    || '5d';
 
-    // حساب startTime — 100 شمعة للخلف
-    const minsMap = { M1:1, M5:5, M15:15, M30:30, H1:60, H4:240, D1:1440 };
-    const mins    = minsMap[tf] || 5;
-    const startTime = new Date(Date.now() - mins * limit * 60 * 1000).toISOString();
-
-    // المسار الصحيح حسب MetaAPI v1 documentation
-    const url = `${BASE}/historical-market-data/symbols/${symbol}/timeframes/${mtTF}/candles?startTime=${encodeURIComponent(startTime)}&limit=${limit}`;
+    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${yahooSym}?interval=${interval}&range=${range}&includePrePost=false`;
 
     try {
-      const r = await fetch(url, { headers: HEADERS });
-
-      if (!r.ok) {
-        const errText = await r.text();
-
-        // جرب المسار البديل
-        const url2 = `${BASE}/history-candles/${symbol}/timeframes/${mtTF}?startTime=${encodeURIComponent(startTime)}&limit=${limit}`;
-        const r2 = await fetch(url2, { headers: HEADERS });
-
-        if (!r2.ok) {
-          // جرب المسار الثالث
-          const url3 = `${BASE}/candles/${symbol}/${mtTF}?limit=${limit}`;
-          const r3 = await fetch(url3, { headers: HEADERS });
-          if (!r3.ok) throw new Error(`All paths failed. Last: ${r3.status} ${await r3.text()}`);
-          const d3 = await r3.json();
-          return res.status(200).json(formatCandles(d3, symbol, tf));
+      const r = await fetch(url, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X)',
+          'Accept': 'application/json',
+          'Accept-Language': 'en-US,en;q=0.9'
         }
-        const d2 = await r2.json();
-        return res.status(200).json(formatCandles(d2, symbol, tf));
-      }
+      });
+      if (!r.ok) throw new Error(`Yahoo ${r.status}`);
+      const json = await r.json();
 
-      const d = await r.json();
-      return res.status(200).json(formatCandles(d, symbol, tf));
+      const result    = json?.chart?.result?.[0];
+      const timestamps = result?.timestamp || [];
+      const quotes    = result?.indicators?.quote?.[0] || {};
+
+      if (!timestamps.length) throw new Error('No data from Yahoo');
+
+      const candles = timestamps.map((t, i) => ({
+        t:  t * 1000,
+        o:  parseFloat((quotes.open?.[i]  || 0).toFixed(4)),
+        h:  parseFloat((quotes.high?.[i]  || 0).toFixed(4)),
+        l:  parseFloat((quotes.low?.[i]   || 0).toFixed(4)),
+        cl: parseFloat((quotes.close?.[i] || 0).toFixed(4)),
+        v:  parseInt(quotes.volume?.[i]   || 0)
+      })).filter(c => c.o > 0 && c.h > 0 && c.l > 0 && c.cl > 0);
+
+      return res.status(200).json({
+        candles,
+        symbol: 'XAGUSD',
+        tf,
+        count:  candles.length,
+        source: 'yahoo-finance',
+        ts:     Date.now()
+      });
 
     } catch(e) {
-      return res.status(500).json({ error: e.message, candles: [] });
+      // Fallback: Stooq
+      try {
+        const stooqInterval = { M5:'5', M15:'15', M30:'30', H1:'60' };
+        const si = stooqInterval[tf] || '5';
+        const stooqUrl = `https://stooq.com/q/d/l/?s=xagusd&i=${si}`;
+        const r2 = await fetch(stooqUrl, { headers: { 'User-Agent': 'Mozilla/5.0' } });
+        if (!r2.ok) throw new Error(`Stooq ${r2.status}`);
+        const text = await r2.text();
+        const rows = text.trim().split('\n').slice(1); // skip header
+        const candles = rows.slice(-limit).map(row => {
+          const [date, time, open, high, low, close, volume] = row.split(',');
+          return {
+            t:  new Date(`${date}T${time || '00:00'}Z`).getTime(),
+            o:  parseFloat(open),
+            h:  parseFloat(high),
+            l:  parseFloat(low),
+            cl: parseFloat(close),
+            v:  parseInt(volume || 0)
+          };
+        }).filter(c => c.o > 0);
+
+        return res.status(200).json({
+          candles,
+          symbol: 'XAGUSD',
+          tf,
+          count:  candles.length,
+          source: 'stooq',
+          ts:     Date.now()
+        });
+      } catch(e2) {
+        return res.status(500).json({ error: `Yahoo: ${e.message} | Stooq: ${e2.message}`, candles: [] });
+      }
     }
   }
 
   return res.status(400).json({ error: 'type must be price or candles' });
-}
-
-function formatCandles(raw, symbol, tf) {
-  // MetaAPI يرجع مصفوفة مباشرة أو { candles: [...] }
-  const arr = Array.isArray(raw) ? raw : (raw.candles || raw.data || []);
-  const candles = arr.map(c => ({
-    t:  new Date(c.time || c.openTime || c.timestamp || 0).getTime(),
-    o:  parseFloat(c.open  || c.o || 0),
-    h:  parseFloat(c.high  || c.h || 0),
-    l:  parseFloat(c.low   || c.l || 0),
-    cl: parseFloat(c.close || c.c || 0),
-    v:  parseInt(c.tickVolume || c.volume || c.v || 0)
-  })).filter(c => c.o > 0);
-
-  return { candles, symbol, tf, count: candles.length, source: 'metaapi-mt5', ts: Date.now() };
 }
