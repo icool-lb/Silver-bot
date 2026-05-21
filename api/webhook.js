@@ -6,7 +6,8 @@ export default async function handler(req, res) {
   const TOKEN    = process.env.TELEGRAM_BOT_TOKEN;
   const CHAT_ID  = process.env.TELEGRAM_CHAT_ID;
   const BASE_URL = `https://api.telegram.org/bot${TOKEN}`;
-  const SELF     = 'https://silver-bot-icool-lbs-projects.vercel.app';
+  const SELF = 'https://silver-bot.vercel.app';
+;
 
   const update   = req.body || {};
   const message  = update.message;
